@@ -1,0 +1,22 @@
+name: Validate skills
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Agent Skills
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Show Python version
+        run: python --version
+      - name: Validate skill metadata and catalog
+        run: python scripts/validate_skills.py
