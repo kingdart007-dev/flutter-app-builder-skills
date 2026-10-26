@@ -27,3 +27,34 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Validate repository skills and links
         run: python scripts/validate_skills.py
+
+  install-smoke:
+    name: Smoke-test Skills CLI installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Install only the visual QA skill in a clean Codex project
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_dir="$(mktemp -d)"
+          cd "$smoke_dir"
+          npx --yes skills@latest add kingdart007-dev/flutter-app-builder-skills --skill flutter-visual-qa --agent codex --copy --yes
+          test -f .agents/skills/flutter-visual-qa/SKILL.md
+      - name: Install the complete collection in a clean Codex project
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_dir="$(mktemp -d)"
+          cd "$smoke_dir"
+          npx --yes skills@latest add kingdart007-dev/flutter-app-builder-skills --skill '*' --agent codex --copy --yes
+          expected=11
+          actual="$(find .agents/skills -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d ' ')"
+          test "$actual" -eq "$expected"
