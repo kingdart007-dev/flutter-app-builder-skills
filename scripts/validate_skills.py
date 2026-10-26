@@ -1,27 +1,30 @@
 #!/usr/bin/env python3
-"""Validate portable Agent Skills metadata and README catalog links."""
+"""Validate Agent Skills metadata, catalog entries, and relative Markdown links."""
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS_DIR = ROOT / "skills"
-README = ROOT / "README.md"
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-CATALOG_PATTERN = re.compile(r"skills/([a-z0-9-]+)/SKILL\.md")
+CATALOG_PATTERN = re.compile(r"skills/([^/]+)/SKILL\.md")
+MARKDOWN_LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+FENCED_BLOCK_PATTERN = re.compile(r"(?ms)^\s*```[^\n]*\n.*?^\s*```\s*$")
 
 
 def parse_frontmatter(path: Path, content: str, errors: list[str]) -> tuple[dict[str, str], str]:
+    """Parse the simple scalar frontmatter used by this collection."""
+    relative = path.as_posix()
     if not content.startswith("---\n"):
-        errors.append(f"{path.relative_to(ROOT)}: missing YAML frontmatter opener")
+        errors.append(f"{relative}: missing YAML frontmatter opener")
         return {}, ""
 
     end = content.find("\n---\n", 4)
     if end < 0:
-        errors.append(f"{path.relative_to(ROOT)}: missing YAML frontmatter closer")
+        errors.append(f"{relative}: missing YAML frontmatter closer")
         return {}, ""
 
     metadata: dict[str, str] = {}
@@ -29,50 +32,106 @@ def parse_frontmatter(path: Path, content: str, errors: list[str]) -> tuple[dict
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         if ":" not in line:
-            errors.append(f"{path.relative_to(ROOT)}:{line_number}: expected key: value metadata")
+            errors.append(f"{relative}:{line_number}: expected key: value metadata")
             continue
         key, value = line.split(":", 1)
         key, value = key.strip(), value.strip()
         if key in metadata:
-            errors.append(f"{path.relative_to(ROOT)}:{line_number}: duplicate metadata key {key!r}")
+            errors.append(f"{relative}:{line_number}: duplicate metadata key {key!r}")
         metadata[key] = value
 
     return metadata, content[end + len("\n---\n"):]
 
 
-def main() -> int:
+def _unquote(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        return value[1:-1]
+    return value
+
+
+def _markdown_files(root: Path) -> list[Path]:
+    return sorted(
+        path for path in root.rglob("*.md")
+        if ".git" not in path.parts and not any(part.startswith(".venv") for part in path.parts)
+    )
+
+
+def _validate_markdown_links(root: Path, errors: list[str]) -> None:
+    for markdown_path in _markdown_files(root):
+        text = markdown_path.read_text(encoding="utf-8")
+        text = FENCED_BLOCK_PATTERN.sub("", text)
+        for match in MARKDOWN_LINK_PATTERN.finditer(text):
+            target = match.group(1).strip()
+            if target.startswith("<") and target.endswith(">"):
+                target = target[1:-1]
+            if not target or target.startswith(("#", "//")):
+                continue
+            if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target):
+                continue
+            local_target = target.split("#", 1)[0].split("?", 1)[0].strip()
+            if not local_target:
+                continue
+            candidate = (markdown_path.parent / local_target).resolve()
+            if not candidate.exists():
+                relative_file = markdown_path.relative_to(root)
+                errors.append(
+                    f"{relative_file}: broken relative Markdown link {target!r}"
+                )
+
+
+def validate(root: Path) -> tuple[list[str], list[str], int]:
+    """Return (errors, warnings, number_of_skill_files) for a repository root."""
+    root = root.resolve()
     errors: list[str] = []
     warnings: list[str] = []
-    skill_files = sorted(SKILLS_DIR.glob("*/SKILL.md")) if SKILLS_DIR.exists() else []
-    if not skill_files:
-        errors.append("skills/: no skill directories with SKILL.md were found")
+    skills_dir = root / "skills"
+    if not skills_dir.is_dir():
+        errors.append("skills/: directory is missing")
+        skill_dirs: list[Path] = []
+    else:
+        skill_dirs = sorted(path for path in skills_dir.iterdir() if path.is_dir())
+        if not skill_dirs:
+            errors.append("skills/: no skill directories were found")
 
-    seen_names: set[str] = set()
-    actual_names: set[str] = set()
+    skill_files: list[Path] = []
+    directory_names: set[str] = set()
+    seen_metadata_names: set[str] = set()
 
-    for path in skill_files:
-        relative = path.relative_to(ROOT)
+    for skill_dir in skill_dirs:
+        path = skill_dir / "SKILL.md"
+        relative = path.relative_to(root).as_posix()
+        directory_names.add(skill_dir.name)
+        if not path.is_file():
+            errors.append(f"{relative}: skill directory is missing SKILL.md")
+            continue
+
+        skill_files.append(path)
         content = path.read_text(encoding="utf-8")
         metadata, body = parse_frontmatter(path, content, errors)
-        name = metadata.get("name", "")
-        description = metadata.get("description", "")
+        name = _unquote(metadata.get("name", "").strip())
+        description = _unquote(metadata.get("description", "").strip())
 
         if not name:
             errors.append(f"{relative}: required metadata field 'name' is empty or missing")
         elif not NAME_PATTERN.fullmatch(name):
-            errors.append(f"{relative}: name must use lowercase letters, numbers, and single hyphens")
+            errors.append(
+                f"{relative}: name must use lowercase letters, numbers, and single hyphens"
+            )
         elif len(name) > 64:
             errors.append(f"{relative}: name exceeds 64 characters")
-        if name and name != path.parent.name:
-            errors.append(f"{relative}: metadata name {name!r} must match directory {path.parent.name!r}")
-        if name in seen_names and name:
-            errors.append(f"{relative}: duplicate skill name {name!r}")
+        if name and name != skill_dir.name:
+            errors.append(
+                f"{relative}: metadata name {name!r} must match directory {skill_dir.name!r}"
+            )
+        if name in seen_metadata_names and name:
+            errors.append(f"{relative}: duplicate skill metadata name {name!r}")
         if name:
-            seen_names.add(name)
-            actual_names.add(name)
+            seen_metadata_names.add(name)
 
         if not description:
-            errors.append(f"{relative}: required metadata field 'description' is empty or missing")
+            errors.append(
+                f"{relative}: required metadata field 'description' is empty or missing"
+            )
         elif len(description) > 1024:
             errors.append(f"{relative}: description exceeds 1024 characters")
         if not body.strip():
@@ -80,15 +139,35 @@ def main() -> int:
         if len(content.splitlines()) > 500:
             warnings.append(f"{relative}: exceeds the recommended 500-line guidance size")
 
-    if README.exists():
-        readme_text = README.read_text(encoding="utf-8")
-        catalog_names = set(CATALOG_PATTERN.findall(readme_text))
-        for name in sorted(actual_names - catalog_names):
-            errors.append(f"README.md: skill {name!r} exists but is not linked in the catalog")
-        for name in sorted(catalog_names - actual_names):
-            errors.append(f"README.md: catalog entry {name!r} has no matching skills/{name}/SKILL.md")
-    else:
+    readme = root / "README.md"
+    if not readme.is_file():
         errors.append("README.md: missing repository overview and skill catalog")
+    else:
+        readme_text = readme.read_text(encoding="utf-8")
+        catalog_entries = CATALOG_PATTERN.findall(readme_text)
+        catalog_names = set(catalog_entries)
+        for name in sorted(set(catalog_entries)):
+            if catalog_entries.count(name) > 1:
+                errors.append(f"README.md: catalog entry for {name!r} appears more than once")
+        for name in sorted(directory_names - catalog_names):
+            errors.append(f"README.md: skill directory {name!r} is not linked in the catalog")
+        for name in sorted(catalog_names - directory_names):
+            errors.append(f"README.md: catalog entry {name!r} has no matching skill directory")
+
+    _validate_markdown_links(root, errors)
+    return errors, warnings, len(skill_files)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=ROOT,
+        help="repository root to validate (defaults to the current skills repository)",
+    )
+    args = parser.parse_args(argv)
+    errors, warnings, skill_count = validate(args.root)
 
     for warning in warnings:
         print(f"WARNING: {warning}")
@@ -98,7 +177,10 @@ def main() -> int:
     if errors:
         print(f"Validation failed with {len(errors)} error(s) and {len(warnings)} warning(s).")
         return 1
-    print(f"Validated {len(skill_files)} skill(s); metadata and README catalog are consistent.")
+
+    print(
+        f"Validated {skill_count} skill(s); metadata, catalog, and Markdown links are consistent."
+    )
     if warnings:
         print(f"Review {len(warnings)} warning(s) above.")
     return 0

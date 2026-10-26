@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,7 +17,13 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-      - name: Show Python version
-        run: python --version
-      - name: Validate skill metadata and catalog
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Compile Python scripts and tests
+        run: python -m compileall -q scripts tests
+      - name: Run validator regression tests
+        run: python -m unittest discover -s tests -v
+      - name: Validate repository skills and links
         run: python scripts/validate_skills.py
