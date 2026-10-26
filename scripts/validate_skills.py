@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-CATALOG_PATTERN = re.compile(r"skills/([^/]+)/SKILL\.md")
+CATALOG_PATTERN = re.compile(r"skills/([a-zA-Z0-9_-]+)/SKILL\.md")
 MARKDOWN_LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 FENCED_BLOCK_PATTERN = re.compile(r"(?ms)^\s*```[^\n]*\n.*?^\s*```\s*$")
 
@@ -50,10 +50,17 @@ def _unquote(value: str) -> str:
 
 
 def _markdown_files(root: Path) -> list[Path]:
-    return sorted(
-        path for path in root.rglob("*.md")
-        if ".git" not in path.parts and not any(part.startswith(".venv") for part in path.parts)
-    )
+    files = []
+    for path in root.rglob("*.md"):
+        relative_parts = path.relative_to(root).parts
+        # Invalid fixture files deliberately contain broken links; validate them
+        # only when each fixture directory is passed as the validation root.
+        if len(relative_parts) >= 2 and relative_parts[:2] == ("tests", "fixtures"):
+            continue
+        if ".git" in relative_parts or any(part.startswith(".venv") for part in relative_parts):
+            continue
+        files.append(path)
+    return sorted(files)
 
 
 def _validate_markdown_links(root: Path, errors: list[str]) -> None:
@@ -74,9 +81,7 @@ def _validate_markdown_links(root: Path, errors: list[str]) -> None:
             candidate = (markdown_path.parent / local_target).resolve()
             if not candidate.exists():
                 relative_file = markdown_path.relative_to(root)
-                errors.append(
-                    f"{relative_file}: broken relative Markdown link {target!r}"
-                )
+                errors.append(f"{relative_file}: broken relative Markdown link {target!r}")
 
 
 def validate(root: Path) -> tuple[list[str], list[str], int]:
@@ -114,24 +119,18 @@ def validate(root: Path) -> tuple[list[str], list[str], int]:
         if not name:
             errors.append(f"{relative}: required metadata field 'name' is empty or missing")
         elif not NAME_PATTERN.fullmatch(name):
-            errors.append(
-                f"{relative}: name must use lowercase letters, numbers, and single hyphens"
-            )
+            errors.append(f"{relative}: name must use lowercase letters, numbers, and single hyphens")
         elif len(name) > 64:
             errors.append(f"{relative}: name exceeds 64 characters")
         if name and name != skill_dir.name:
-            errors.append(
-                f"{relative}: metadata name {name!r} must match directory {skill_dir.name!r}"
-            )
+            errors.append(f"{relative}: metadata name {name!r} must match directory {skill_dir.name!r}")
         if name in seen_metadata_names and name:
             errors.append(f"{relative}: duplicate skill metadata name {name!r}")
         if name:
             seen_metadata_names.add(name)
 
         if not description:
-            errors.append(
-                f"{relative}: required metadata field 'description' is empty or missing"
-            )
+            errors.append(f"{relative}: required metadata field 'description' is empty or missing")
         elif len(description) > 1024:
             errors.append(f"{relative}: description exceeds 1024 characters")
         if not body.strip():
@@ -143,7 +142,7 @@ def validate(root: Path) -> tuple[list[str], list[str], int]:
     if not readme.is_file():
         errors.append("README.md: missing repository overview and skill catalog")
     else:
-        readme_text = readme.read_text(encoding="utf-8")
+        readme_text = FENCED_BLOCK_PATTERN.sub("", readme.read_text(encoding="utf-8"))
         catalog_entries = CATALOG_PATTERN.findall(readme_text)
         catalog_names = set(catalog_entries)
         for name in sorted(set(catalog_entries)):
@@ -178,9 +177,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Validation failed with {len(errors)} error(s) and {len(warnings)} warning(s).")
         return 1
 
-    print(
-        f"Validated {skill_count} skill(s); metadata, catalog, and Markdown links are consistent."
-    )
+    print(f"Validated {skill_count} skill(s); metadata, catalog, and Markdown links are consistent.")
     if warnings:
         print(f"Review {len(warnings)} warning(s) above.")
     return 0
