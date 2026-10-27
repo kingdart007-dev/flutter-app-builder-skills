@@ -94,13 +94,13 @@ Use the project's supported configurations. Where they are in scope, verify:
 
 Do not treat a screenshot as a full accessibility audit. Screen-reader behavior, contrast measurement, and touch-target verification need their own suitable checks.
 
-### 7. Diagnose differences; do not beautify blindly
+### 8. Diagnose differences; do not beautify blindly
 
 Compare against the explicit spec, accepted reference, or existing baseline. For golden tests, inspect pixel diffs and the semantic reason for the change before updating expectations. Avoid chasing pixel equality across different fonts/platforms when the test contract should instead check layout and behavior.
 
 Fix root causes rather than hiding overflow with clipping or shrinking text. Do not hard-code a single emulator width when flexible constraints solve the actual problem.
 
-### 8. Report the result with evidence
+### 9. Report the result with evidence
 
 Use [the visual QA report template](../../examples/visual-qa-report-template.md). For each important check report:
 - PASS, FAIL, or NOT RUN.

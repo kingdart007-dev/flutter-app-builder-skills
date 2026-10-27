@@ -23,7 +23,7 @@ These skills are framework-aware but not package-dogmatic. They help an agent in
 | Skill | Use it when |
 | --- | --- |
 | [flutter-app-builder](skills/flutter-app-builder/SKILL.md) | Planning and delivering a feature or app end to end. |
-| [flutter-ui-ux](skills/flutter-ui-ux/SKILL.md) | Designing polished, responsive, accessible Flutter screens and flows. |
+| [flutter-design-research](skills/flutter-design-research/SKILL.md) | Researching visual references, platform guidance, interaction flows, and design patterns before implementation. |\n| [flutter-ui-ux](skills/flutter-ui-ux/SKILL.md) | Designing polished, responsive, accessible Flutter screens and flows. |
 | [flutter-visual-qa](skills/flutter-visual-qa/SKILL.md) | Verifying real Flutter UI on emulators/simulators, screenshots, accessibility, themes, and RTL. |
 | [flutter-architecture](skills/flutter-architecture/SKILL.md) | Choosing boundaries, organizing features, and separating UI, state, and data access. |
 | [flutter-state-management](skills/flutter-state-management/SKILL.md) | Selecting or improving local/shared state, async flows, and navigation state. |

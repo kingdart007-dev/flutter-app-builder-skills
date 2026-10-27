@@ -55,6 +55,6 @@ jobs:
           smoke_dir="$(mktemp -d)"
           cd "$smoke_dir"
           npx --yes skills@latest add kingdart007-dev/flutter-app-builder-skills --skill '*' --agent codex --copy --yes
-          expected=11
+          expected=12
           actual="$(find .agents/skills -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d ' ')"
           test "$actual" -eq "$expected"
