@@ -82,7 +82,40 @@ Keep evidence labeled by feature/scenario, device or simulator, locale, theme, a
 
 If the available tools cannot display or inspect the screenshot, say so explicitly. A file existing on disk alone does not prove a visual review was performed.
 
-### 6. Check responsive, theme, locale, and accessibility risks
+### 6. Inspect motion with a real recording when motion matters
+
+Use this for animated onboarding, transitions, swipe/drag interactions, loading, custom controls, or reported motion defects. Do not record just for decoration when the change has no meaningful motion.
+
+- Record the actual running app on the target emulator/simulator/device while exercising a short, deterministic flow. Use test data and keep the recording in a temporary/artifact directory.
+- Android example, when Android SDK tools and a device are available (start recording, exercise the flow, then stop recording with Ctrl+C or the supported device command and pull the resulting file):
+
+  ```bash
+  adb devices
+  adb shell screenrecord --time-limit 30 /sdcard/flutter-motion-qa.mp4
+  adb pull /sdcard/flutter-motion-qa.mp4 /tmp/flutter-motion-qa.mp4
+  ```
+
+- iOS Simulator example, on macOS with a booted simulator (start recording, exercise the flow, then stop the recording):
+
+  ```bash
+  xcrun simctl list devices booted
+  xcrun simctl io booted recordVideo /tmp/flutter-motion-qa.mp4
+  ```
+
+- Play the clip at normal speed first, then scrub and pause around transition start, midpoint, completion, reversals, repeated taps, interrupted gestures, and back/dismiss behavior. If `ffmpeg` is already available, extract a small set of representative frames for closer inspection:
+
+  ```bash
+  ffmpeg -i /tmp/flutter-motion-qa.mp4 -vf "fps=2" /tmp/flutter-motion-frame-%03d.png
+  ```
+
+- Inspect whether motion communicates hierarchy/state, follows the user's gesture, feels continuous, avoids layout jumps and flicker, keeps text/icons readable, and does not block input unnecessarily. Check loading animations for a stuck state, duplicated motion, or failure to settle.
+- Check reduced-motion or animation-disabled behavior when the product/platform supports it. Important information must not be communicated through motion alone.
+- Do not install recording or video-processing tools automatically. If the environment lacks capture or frame-inspection capability, report the exact limitation and use the best available alternative. A video file existing on disk is not proof that its contents were reviewed.
+- Do not commit recordings or extracted frames by default. Retain only required, non-sensitive evidence according to the repository's artifact policy.
+
+Use [the motion QA checklist](../../examples/motion-qa-checklist.md) to record the flow and findings.
+
+### 7. Check responsive, theme, locale, and accessibility risks
 
 Use the project's supported configurations. Where they are in scope, verify:
 - Light and dark themes, including surfaces, separators, disabled states, and system bars.
