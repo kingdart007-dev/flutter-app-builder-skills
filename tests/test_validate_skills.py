@@ -29,7 +29,7 @@ class ValidateSkillsTests(unittest.TestCase):
         errors, warnings, skill_count = validate(ROOT)
         self.assertEqual([], errors, "\n".join(errors))
         self.assertEqual([], warnings, "\n".join(warnings))
-        self.assertEqual(11, skill_count)
+        self.assertEqual(12, skill_count)
 
 
 if __name__ == "__main__":
