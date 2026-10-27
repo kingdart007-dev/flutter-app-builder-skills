@@ -68,3 +68,30 @@ This is a format example, not an executed test report:
 | Screen-reader audit | PASS / FAIL / NOT RUN | Only mark PASS if an appropriate assistive-technology check occurred. |
 
 Replace every placeholder status with an observed result before sharing the report. Do not copy this table into a real result without executing the checks.
+
+
+## 5. Research a supplied UI reference before implementation
+
+**Prompt**
+
+> Inspect this Flutter repository and the supplied product/reference material before changing the UI. Review the important screens and states available, record observations separately from design hypotheses, consult current official platform/Flutter guidance for relevant concerns, and produce a concise design brief with screen inventory, tokens/components, localization/RTL, accessibility, responsive behavior, and acceptance criteria. Do not copy distinctive branding or claim references were inspected when they were inaccessible.
+
+**Expected evidence**
+
+- Reference links and actual inspected screens/states are named, with limitations.
+- Findings are separated from hypotheses, and relevant platform/API claims cite current authoritative documentation.
+- The brief preserves existing product constraints and translates patterns into an original implementation.
+- Device, animation, and assistive-technology checks are marked NOT RUN unless performed.
+
+## 6. Verify a motion-heavy flow
+
+**Prompt**
+
+> Run the relevant Flutter app on an available emulator/simulator, exercise the animated flow, record a short real-device clip if supported, then scrub the transition and inspect representative frames. Check interrupted gestures, reverse/back navigation, repeated input, loading completion, and reduced-motion behavior where supported. Report capture and inspection separately from source/test checks.
+
+**Expected evidence**
+
+- Exact device/platform and flow, with a recording/artifact path only if actually created.
+- Motion findings grounded in playback or inspected extracted frames, not assumptions based on source code alone.
+- Static, widget, screenshot, and motion checks are reported as distinct forms of evidence.
+- Unavailable recording, video inspection, reduced-motion, and physical-device checks are explicitly marked NOT RUN.
