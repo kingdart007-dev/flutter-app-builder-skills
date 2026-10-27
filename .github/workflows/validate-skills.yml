@@ -54,7 +54,8 @@ jobs:
           set -euo pipefail
           smoke_dir="$(mktemp -d)"
           cd "$smoke_dir"
-          npx --yes skills@latest add kingdart007-dev/flutter-app-builder-skills --skill '*' --agent codex --copy --yes
+          npx --yes skills@latest add "$GITHUB_WORKSPACE" --skill '*' --agent codex --copy --yes
           expected=12
           actual="$(find .agents/skills -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d ' ')"
           test "$actual" -eq "$expected"
+          test -f .agents/skills/flutter-design-research/SKILL.md
